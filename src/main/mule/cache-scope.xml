@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:os="http://www.mulesoft.org/schema/mule/os" xmlns:db="http://www.mulesoft.org/schema/mule/db"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
+http://www.mulesoft.org/schema/mule/os http://www.mulesoft.org/schema/mule/os/current/mule-os.xsd">
+	<http:listener-config name="HTTP_Listener_config1" doc:name="HTTP Listener config" doc:id="10437c97-78f4-4269-8ee9-521659909ab6" >
+		<http:listener-connection host="0.0.0.0" port="8081" />
+	</http:listener-config>
+	<db:config name="Database_Config1" doc:name="Database Config" doc:id="de636d62-d133-49ca-8bbc-e2ebb91a6e02" >
+		<db:my-sql-connection host="database-2.cdweclit6e4d.us-east-1.rds.amazonaws.com" port="3306" user="admin" password="Chittoor!12345" database="database_db" />
+	</db:config>
+	<ee:object-store-caching-strategy name="Caching_Strategy" doc:name="Caching Strategy" doc:id="de85467f-287d-4f8c-a9f2-bde2d047b9c7" keyGenerationExpression="#[vars.id]" >
+		<os:private-object-store maxEntries="10000" entryTtl="24" entryTtlUnit="HOURS" expirationInterval="10" config-ref="ObjectStore_Config"/>
+	</ee:object-store-caching-strategy>
+	<os:config name="ObjectStore_Config" doc:name="ObjectStore Config" doc:id="257ef1d5-743b-47a0-8f35-b74d4e2e7c11" />
+	<flow name="cache-scopeFlow" doc:id="95cd0e42-41d5-430f-9777-7277e5fcb20c" >
+		<http:listener doc:name="Listener" doc:id="5e252f8e-bdf0-4109-8434-77b93e2da083" config-ref="HTTP_Listener_config1" path="/cache"/>
+		<logger level="INFO" doc:name="Logger" doc:id="c0863c86-45fd-4f32-9519-f7e88f3c0416" message="Request recieved"/>
+		<set-variable value="#[attributes.queryParams.customerId]" doc:name="Set Variable" doc:id="29d9bcef-db0f-4ca1-814b-9a4e3a1b356e" variableName="id"/>
+		<ee:cache doc:name="Cache" doc:id="082b748e-f63f-402f-8800-323ac5edbd3b" cachingStrategy-ref="Caching_Strategy">
+			<logger level="INFO" doc:name="Logger" doc:id="1e29c043-004f-4c12-ae4f-0df1e3fe9426" message="before getting data from database"/>
+			<db:select doc:name="Select" doc:id="c7f7b7d6-6cbd-4b43-b501-11b0974e74f9" config-ref="Database_Config1">
+				<db:sql ><![CDATA[SELECT * FROM database_db.emp_tbl WHERE id=:id]]></db:sql>
+				<db:input-parameters ><![CDATA[#[{
+	id:vars.id
+}]]]></db:input-parameters>
+			</db:select>
+			<logger level="INFO" doc:name="Logger" doc:id="09ad10b3-4894-493a-b370-6f08907223ad" message="after getting data from db"/>
+		</ee:cache>
+		<ee:transform doc:name="Transform Message" doc:id="47e14f97-c821-41a7-af88-afb67be9e054" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/xml
+---
+{
+	customer:payload
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+</mule>
